@@ -6,6 +6,7 @@ import pandas as pd
 from ftplib import FTP
 from Bio import Entrez
 Entrez.email = 'j.lees@imperial.ac.uk'
+Entrez.api_key = '82fc4fe1eb04a8801146737727f3b11a0b08'
 
 def main():
     import argparse
