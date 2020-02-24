@@ -48,7 +48,8 @@ def main():
                     continue
 
                 handle = Entrez.esummary(db='Assembly', id=id[0], retmode='xml')
-                ftp_path = handle['FtpPath_GenBank']
+                ret = Entrez.read(handle)
+                ftp_path = ret['DocumentSummarySet']['DocumentSummary'][0]['FtpPath_GenBank']
                 if ftp_path == None or ftp_path == '':
                     sys.stderr.write("Could not find assembly on FTP for " + sample + "\n")
                     continue
