@@ -2,6 +2,7 @@
 
 import os, sys
 import pandas as pd
+import time
 
 from ftplib import FTP
 from Bio import Entrez
@@ -39,22 +40,39 @@ def main():
             # Find file on FTP
             try:
                 ftp_loc = assembly_locs.loc[assembly]['ftp_path']
-                ftp_path = ftp_loc.split("/")
+
             except KeyError:
-                handle = Entrez.esearch(db='Assembly', term=sample)
-                id = Entrez.read(handle)['IdList']
-                if len(id) == 0:
-                    sys.stderr.write("Could not find assembly for " + sample + "\n")
+                # Block for Entrez failures
+                failed = 0
+                for attempt in range(0,5):
+                    try:
+                        handle = Entrez.esearch(db='Assembly', term=sample)
+                        id = Entrez.read(handle)['IdList']
+                        if len(id) == 0:
+                            sys.stderr.write("Could not find assembly for " + sample + "\n")
+                            failed = 1
+                            break
+                        handle = Entrez.esummary(db='Assembly', id=id[0], retmode='xml')
+                        ret = Entrez.read(handle)
+                        break
+                    except RuntimeError:
+                        time.sleep(1)
+                if failed == 1:
+                    sys.stderr.write("Could not search Entrez for " + sample + "\n")
                     continue
 
-                handle = Entrez.esummary(db='Assembly', id=id[0], retmode='xml')
-                ret = Entrez.read(handle)
-                ftp_path = ret['DocumentSummarySet']['DocumentSummary'][0]['FtpPath_GenBank']
-                if ftp_path == None or ftp_path == '':
+                # Block for result format failures
+                try:
+                    ftp_loc = ret['DocumentSummarySet']['DocumentSummary'][0]['FtpPath_GenBank']
+                except (IndexError, KeyError):
+                    sys.stderr.write("Could not find assembly on FTP for " + sample + "\n")
+                    continue
+                if ftp_loc == None or ftp_loc == '':
                     sys.stderr.write("Could not find assembly on FTP for " + sample + "\n")
                     continue
 
             # FTP access
+            ftp_path = ftp_loc.split("/")
             for idx, path_part in enumerate(ftp_path):
                 if path_part == "all":
                     ass_path = "/".join(ftp_path[idx+1:]) + "/" + ftp_path[-1] + "_genomic.fna.gz"
@@ -67,7 +85,7 @@ def main():
                     ftp.retrbinary('RETR %s' % ass_path, fhandle.write)
                 downloaded += 1
 
-    print("Downloaded " + downloaded + " assemblies\n")
+    print("Downloaded " + int(downloaded) + " assemblies\n")
 
 
 if __name__ == '__main__':
