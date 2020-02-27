@@ -54,7 +54,7 @@ def main():
 
                 m = re.match(r"^(GCA|GCF)_(\d\d\d)(\d\d\d)(\d\d\d)\..+$", assembly)
                 ftp_path = "/".join([m.group(1), m.group(2), m.group(3), m.group(4)])
-                
+
                 # Find file on FTP
                 # FTP access
                 try:
