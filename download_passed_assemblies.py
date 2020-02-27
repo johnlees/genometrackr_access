@@ -11,7 +11,7 @@ def ftp_reload(ftp_obj):
     ftp_obj.close()
 
     success = 1
-    for attempt in range(5):
+    for attempt in range(10):
         time.sleep(5)
         try:
             ftp_new = FTP('ftp.ncbi.nlm.nih.gov')
@@ -43,11 +43,7 @@ def main():
     ftp = FTP('ftp.ncbi.nlm.nih.gov')
     ftp.login()
     for table_row in cluster_def.iterrows():
-        try:
-            ftp.cwd('/genomes/all')
-        except EOFError:
-            ftp = ftp_reload(ftp)
-            ftp.cwd('/genomes/all')
+
         assembly = table_row[1]['asm_acc']
         sample = table_row[1]['biosample_acc']
         name = table_row[0].split("|")[0]
@@ -55,11 +51,17 @@ def main():
         try:
             if pd.notna(assembly):
                 sys.stderr.write("Downloading " + name + "\n")
+
                 m = re.match(r"^(GCA|GCF)_(\d\d\d)(\d\d\d)(\d\d\d)\..+$", assembly)
                 ftp_path = "/".join([m.group(1), m.group(2), m.group(3), m.group(4)])
+                
                 # Find file on FTP
                 # FTP access
-                ftp.cwd(ftp_path)
+                try:
+                    ftp.cwd('/genomes/all/' + ftp_path)
+                except (EOFError, error_temp, error_perm):
+                    ftp = ftp_reload(ftp)
+                    ftp.cwd('/genomes/all/' + ftp_path)
                 directory = ftp.nlst()
                 ftp.cwd(directory[0])
                 file_name = directory[0] + "_genomic.fna.gz"
