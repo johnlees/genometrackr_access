@@ -22,6 +22,9 @@ def runQuery(assemblies, names, outfile):
             break
         except RuntimeError:
             time.sleep(3)
+        except Entrez.Parser.ValidationError:
+            sys.stderr.write("Entrez parse error\n")
+            break
 
     if success == 1:
         for (record, name) in zip(records['DocumentSummarySet']['DocumentSummary'], names):
