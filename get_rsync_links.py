@@ -10,14 +10,19 @@ Entrez.email = 'j.lees@imperial.ac.uk'
 Entrez.api_key = '82fc4fe1eb04a8801146737727f3b11a0b08'
 
 def runQuery(assemblies, names, outfile):
-    esearch_term = " OR ".join(assemblies)
+    esearch_term = " OR ".join(['"' + x + '"[All Uids]' for x in assemblies])
     success = 0
+    faillist = []
     for attempt in range(5):
         try:
             handle = Entrez.esearch(db='Assembly', term=esearch_term)
-            ret = Entrez.read(handle)['IdList']
+            ret = Entrez.read(handle)
+            if int(ret['Count']) != len(assemblies):
+                sys.stderr.write("Problem with queries, multiple results returned\n")
+                break
+            ret = ret['IdList']
             handle2 = Entrez.esummary(db='Assembly', id=",".join(ret), retmode='xml')
-            records = Entrez.read(handle2)
+            records = Entrez.read(handle2, validate=False)
             success = 1
             break
         except RuntimeError:
@@ -40,8 +45,8 @@ def runQuery(assemblies, names, outfile):
                 sys.stderr.write("Could not find assembly on FTP for " + sample + "\n")
                 continue
     else:
-        sys.stderr.write("FAILED:\n")
-        sys.stderr.write("\n".join(names) + "\n")
+        return (assemblies, names)
+    return None
 
 def main():
     import argparse
@@ -64,9 +69,17 @@ def main():
                     table_row = next(row_it)
                     assembly = table_row[1]['fullasm_id']
                     name = table_row[0].split("|")[0]
-                    assemblies.append(str(assembly))
-                    names.append(name)
-                runQuery(assemblies, names, outfile)
+                    if assembly != 0:
+                        assemblies.append(str(assembly))
+                        names.append(name)
+                failing = runQuery(assemblies, names, outfile)
+                # Run one by one
+                if failing:
+                    assemblies, names = failing
+                    for assembly, name in zip(assemblies, names):
+                        failed_twice = runQuery([assembly], [name], outfile)
+                        if failed_twice:
+                            sys.stderr.write(name + "\tfailed\n")
             except StopIteration:
                 if len(assemblies) > 0:
                     runQuery(assemblies, names, outfile)
